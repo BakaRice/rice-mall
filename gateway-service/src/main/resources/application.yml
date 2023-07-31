@@ -1,0 +1,30 @@
+server:
+  port: 9090
+
+spring:
+  application:
+    name: gateway-service
+  main:
+    allow-bean-definition-overriding: true
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: http://192.168.0.121:8848
+      config:
+        server-addr: http://192.168.0.121:8848
+        file-extension: yaml
+    gateway:
+      discovery:
+        locator:
+          enabled: true # gateway K
+
+      routes:
+        - id: user-service # 自己命名的，只要唯一即可
+          uri: lb://user-service #强对应 user-service的spring.application.name
+          predicates:
+            - Path=/** #todo
+          filters:
+            - StripPrefix=1 #使用过滤器
+
+

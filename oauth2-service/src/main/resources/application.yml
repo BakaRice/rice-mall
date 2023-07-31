@@ -1,0 +1,21 @@
+server:
+  port: 8050
+
+spring:
+  application:
+    name: user-service
+  main:
+    allow-bean-definition-overriding: true
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: http://192.168.0.121:8848
+      config:
+        server-addr: http://192.168.0.121:8848
+        file-extension: yaml
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://test.ricemarch.com:3306/oauth?serverTimezone=UTC&useSSL=false
+    username: root
+    password: NEFU
