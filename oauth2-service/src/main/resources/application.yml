@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: user-service
+    name: oauth2-service
   main:
     allow-bean-definition-overriding: true
 
