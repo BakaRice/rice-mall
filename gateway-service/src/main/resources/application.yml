@@ -1,5 +1,5 @@
 server:
-  port: 9090
+  port: 9000
 
 spring:
   application:
@@ -10,21 +10,33 @@ spring:
   cloud:
     nacos:
       discovery:
-        server-addr: http://192.168.0.121:8848
+        server-addr: 192.168.0.107:8848
       config:
-        server-addr: http://192.168.0.121:8848
+        server-addr: 192.168.0.107:8848
         file-extension: yaml
     gateway:
       discovery:
         locator:
-          enabled: true # gateway K
-
+          enabled: true # gateway 可以从 nacos发现服务，过 gateway调用 其他的微服务
       routes:
-        - id: user-service # 自己命名的，只要唯一即可
-          uri: lb://user-service #强对应 user-service的spring.application.name
+        - id: user_service_route #自己命名的，只要唯一即可
+          uri: lb://user-service #强对应 user-service的 spring.application.name
           predicates:
-            - Path=/** #todo
+            - Path=/** #to do
           filters:
             - StripPrefix=1 #使用过滤器
+        - id: oauth2_service_route #自己命名的，只要唯一即可
+          uri: lb://oauth2-service #强对应 user-service的 spring.application.name
+          predicates:
+            - Path=/** #to do
+          filters:
+            - StripPrefix=1 #使用过滤器
+#  datasource:
+#    driver-class-name: com.mysql.cj.jdbc.Driver
+#    url: jdbc:mysql://localhost:3306/oauth?serverTimezone=UTC&useSSL=false
+#    username: root
+#    password: 123456
 
-
+# 我们发现一个问题，现在很多项目模块的配置文件有重复，如果我们哪天修改了db的链接，我们需要将所有的
+#子模块依次进行修改，好麻烦哦。  不要着急，将来我们会将这些配置，统一放到nacos配置中心里，然后统一
+#进行管理，我们的不同的模块，都会直接从 nacos中获取配置。
