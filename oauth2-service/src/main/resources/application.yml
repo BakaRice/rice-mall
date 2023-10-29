@@ -16,6 +16,6 @@ spring:
         file-extension: yaml
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://test.ricemarch.com:3306/oauth?serverTimezone=UTC&useSSL=false
+    url: jdbc:mysql://localhost:3306/oauth?serverTimezone=UTC&useSSL=false
     username: root
-    password:
+    password: 123456

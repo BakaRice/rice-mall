@@ -13,6 +13,7 @@
         <module>gateway-service</module>
         <module>user-service</module>
         <module>oauth2-service</module>
+        <module>common</module>
     </modules>
 
     <parent>

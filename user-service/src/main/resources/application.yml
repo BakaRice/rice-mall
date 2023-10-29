@@ -14,4 +14,18 @@ spring:
       config:
         server-addr: http://192.168.0.107:8848
         file-extension: yaml
-
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/oauth?serverTimezone=UTC&useSSL=false
+    username: root
+    password: 123456
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 10s
+      lettuce:
+        pool:
+          max-active: 50
+          max-idle: 50
+          max-wait: -1ms
+          min-idle: 0
