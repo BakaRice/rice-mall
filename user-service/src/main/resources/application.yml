@@ -10,9 +10,9 @@ spring:
   cloud:
     nacos:
       discovery:
-        server-addr: http://192.168.0.107:8848
+        server-addr: http://192.168.3.207:8848
       config:
-        server-addr: http://192.168.0.107:8848
+        server-addr: http://192.168.3.207:8848
         file-extension: yaml
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -29,3 +29,11 @@ spring:
           max-idle: 50
           max-wait: -1ms
           min-idle: 0
+third-party:
+  gitee:
+    client-id: 8700593f8c389d35f916e2579f0a64af3f95d26a72738c845ae6d0f1d00934cf
+    client-secret:
+    call-back: http://localhost:9001/user/register/gitee
+    token-url: https://gitee.com/oauth/token?grant_type=authorization_code&client_id=%s&client_secret=%s&redirect_uri=%s&code=%s
+    user-url: https://gitee.com/api/v5/user?access_token=%s
+    state: GITEE

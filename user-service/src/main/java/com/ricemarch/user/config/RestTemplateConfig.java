@@ -34,7 +34,22 @@ public class RestTemplateConfig {
         return httpComponentsClientHttpRequestFactory;
     }
 
-    @Bean(name = "restTemplate")
+    @Bean(name = "outerRestTemplate")
+    public RestTemplate getOuterRestTemplate() {
+        RestTemplate restTemplate = new RestTemplate(clientHttpRequestFactory());
+        // 我们一般接收的 uat-8 形式的消息
+        List<HttpMessageConverter<?>> messageConverters = restTemplate.getMessageConverters();
+        Iterator<HttpMessageConverter<?>> iterator = messageConverters.iterator();
+        while (iterator.hasNext()) {
+            HttpMessageConverter<?> converter = iterator.next();
+            if (converter instanceof StringHttpMessageConverter) {
+                ((StringHttpMessageConverter) converter).setDefaultCharset(Charset.forName("UTF-8"));
+            }
+        }
+        return restTemplate;
+    }
+
+    @Bean(name = "innerRestTemplate")
     @LoadBalanced
     public RestTemplate getRestTemplate() {
         RestTemplate restTemplate = new RestTemplate(clientHttpRequestFactory());
@@ -49,35 +64,4 @@ public class RestTemplateConfig {
         }
         return restTemplate;
     }
-
-    // @Bean(name = "outerRestTemplate")
-    // public RestTemplate getOuterRestTemplate() {
-    //     RestTemplate restTemplate = new RestTemplate(clientHttpRequestFactory());
-    //     // 我们一般接收的 uat-8 形式的消息
-    //     List<HttpMessageConverter<?>> messageConverters = restTemplate.getMessageConverters();
-    //     Iterator<HttpMessageConverter<?>> iterator = messageConverters.iterator();
-    //     while (iterator.hasNext()) {
-    //         HttpMessageConverter<?> converter = iterator.next();
-    //         if (converter instanceof StringHttpMessageConverter) {
-    //             ((StringHttpMessageConverter) converter).setDefaultCharset(Charset.forName("UTF-8"));
-    //         }
-    //     }
-    //     return restTemplate;
-    // }
-    //
-    // @Bean(name = "innerRestTemplate")
-    // @LoadBalanced
-    // public RestTemplate getRestTemplate() {
-    //     RestTemplate restTemplate = new RestTemplate(clientHttpRequestFactory());
-    //     // 我们一般接收的 uat-8 形式的消息
-    //     List<HttpMessageConverter<?>> messageConverters = restTemplate.getMessageConverters();
-    //     Iterator<HttpMessageConverter<?>> iterator = messageConverters.iterator();
-    //     while (iterator.hasNext()) {
-    //         HttpMessageConverter<?> converter = iterator.next();
-    //         if (converter instanceof StringHttpMessageConverter) {
-    //             ((StringHttpMessageConverter) converter).setDefaultCharset(Charset.forName("UTF-8"));
-    //         }
-    //     }
-    //     return restTemplate;
-    // }
 }

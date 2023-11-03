@@ -1,9 +1,11 @@
 package com.ricemarch.user.service;
 
 
+import com.alibaba.fastjson.JSONObject;
 import com.ricemarch.common.response.CommonResponse;
 import com.ricemarch.common.response.ResponseCode;
 import com.ricemarch.common.response.ResponseUtils;
+import com.ricemarch.user.config.GiteeConfig;
 import com.ricemarch.user.pojo.AuthGrantType;
 import com.ricemarch.user.pojo.Oauth2Client;
 import com.ricemarch.user.pojo.RegisterType;
@@ -19,25 +21,14 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.util.MultiValueMap;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.orm.jpa.JpaTransactionManager;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -54,7 +45,13 @@ public class UserRegisterLoginService {
     private RedisCommonProcessor redisCommonProcessor;
 
     @Autowired
-    private RestTemplate restTemplate;
+    private RestTemplate innerRestTemplate;
+
+    @Autowired
+    private RestTemplate outerRestTemplate;
+
+    @Autowired
+    private GiteeConfig giteeConfig;
 
     @Resource(name = "transactionManager")
     private JpaTransactionManager transactionManager;
@@ -95,6 +92,102 @@ public class UserRegisterLoginService {
             );
         }
         return ResponseUtils.failResponse(ResponseCode.BAD_REQUEST.getCode(), null, "User already exist！ Please login！");
+    }
+
+    public CommonResponse phoneCodeRegister(String phoneNumber, String code) {
+        String cacheCode = String.valueOf(redisCommonProcessor.get(phoneNumber));
+
+        if (cacheCode == null) {
+            return ResponseUtils.failResponse(ResponseCode.BAD_REQUEST.getCode(), null, "验证码已经过期");
+        }
+        BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
+        String encodePassword = bCryptPasswordEncoder.encode(code);
+        User user = userRepository.findByUserPhone(phoneNumber);
+        if (user == null) {
+            // 注册流程
+            String username = getSystemDefinedUserName(phoneNumber);
+            user = User.builder()
+                    .userName(username).passwd("").userPhone(phoneNumber).userRole(RegisterType.PHONE_NUMBER.name()).build();
+
+
+            Oauth2Client oauth2Client = Oauth2Client.builder()
+                    .clientId(phoneNumber).clientSecret(encodePassword)
+                    .resourceIds(RegisterType.PHONE_NUMBER.name())
+                    .authorizedGrantTypes(AuthGrantType.refresh_token.name().concat(",").
+                            concat(AuthGrantType.client_credentials.name()))
+                    .scope("web").authorities(RegisterType.PHONE_NUMBER.name())
+                    .build();
+
+            Integer userId = this.saveUserAndOauthClient(user, oauth2Client);
+            String personId = userId + 10000000 + "";
+            redisCommonProcessor.setExpiredDays(personId, user, 30);
+        } else {
+            oauthClientRepository.updateSecretByClientId(encodePassword, phoneNumber);
+        }
+        return ResponseUtils.okResponse(formatResponseContent(user,
+                generateOauthToken(AuthGrantType.client_credentials, null, null, phoneNumber, code)));
+    }
+
+    public CommonResponse thirdPartGiteeCallback(HttpServletRequest request) {
+        String code = request.getParameter("code");
+        String state = request.getParameter("state");
+
+        if (!giteeConfig.getState().equals(state)) {
+            throw new UnsupportedOperationException("Invalid state!");
+        }
+        String tokenUrl = String.format(giteeConfig.getTokenUrl(),
+                giteeConfig.getClientId(), giteeConfig.getClientSecret(),
+                giteeConfig.getCallBack(), code);
+        JSONObject tokenResult = outerRestTemplate.postForObject(tokenUrl, null, JSONObject.class);
+        String token = String.valueOf(tokenResult.get("access_token"));
+
+        String userUrl = String.format(giteeConfig.getUserUrl(), token);
+        JSONObject userInfo = outerRestTemplate.getForObject(userUrl, JSONObject.class);
+
+        String username = giteeConfig.getState().concat("_").concat(String.valueOf(userInfo.get("name")));
+        BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
+        String encodePassword = bCryptPasswordEncoder.encode(username);
+
+        User user = userRepository.findByUserName(username);
+        if (user == null) {
+            user = User.builder()
+                    .userName(username)
+                    .passwd("")
+                    .userRole(RegisterType.THIRD_PARTY.name())
+                    .build();
+            Oauth2Client oauth2Client = Oauth2Client.builder()
+                    .clientId(username)
+                    .clientSecret(encodePassword)
+                    .resourceIds(RegisterType.THIRD_PARTY.name())
+                    .authorizedGrantTypes(AuthGrantType.refresh_token.name().concat(",").
+                            concat(AuthGrantType.client_credentials.name()))
+                    .scope("web")
+                    .authorities(RegisterType.THIRD_PARTY.name())
+                    .build();
+            Integer userId = this.saveUserAndOauthClient(user, oauth2Client);
+            String personId = userId + 10000000 + "";
+            redisCommonProcessor.setExpiredDays(personId, user, 30);
+        }
+        return ResponseUtils.okResponse(formatResponseContent(user,
+                generateOauthToken(AuthGrantType.client_credentials, null, null, username, username)));
+    }
+
+    public CommonResponse login(String username, String password) {
+        User user = userRepository.findByUserName(username);
+        if(user == null) {
+            return ResponseUtils.failResponse(ResponseCode.BAD_REQUEST.getCode(), null, "user not exist!");
+        }
+
+        Map content = formatResponseContent(user,
+                generateOauthToken(AuthGrantType.password, username, password, username, password));
+        String personId = user.getId() + 10000000 + "";
+        redisCommonProcessor.setExpiredDays(personId, user, 30);
+        return ResponseUtils.okResponse(content);
+    }
+
+    private String getSystemDefinedUserName(String phoneNumber) {
+        // 前缀 MALL_ + 当前时间戳 + 手机号后4位
+        return "MALL_" + System.currentTimeMillis() + phoneNumber.substring(phoneNumber.length() - 4);
     }
 
     // 校长，我们可以不可以创建一个专门的 对象，进行这两部分内容的返回呢？
@@ -138,7 +231,7 @@ public class UserRegisterLoginService {
         }
         HttpEntity<MultiValueMap<String, String>> requestEntity =
                 new HttpEntity<>(params, httpHeaders);
-        return restTemplate.postForObject("http://oauth2-service/oauth/token", requestEntity, Map.class);
+        return innerRestTemplate.postForObject("http://oauth2-service/oauth/token", requestEntity, Map.class);
     }
 
 }
