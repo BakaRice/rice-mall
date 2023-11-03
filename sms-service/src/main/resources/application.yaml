@@ -1,0 +1,33 @@
+server:
+  port: 9011
+
+spring:
+  application:
+    name: sms-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: http://192.168.3.207:8848
+      config:
+        server-addr: http://192.168.3.207:8848
+        file-extension: yaml
+  reids:
+    host: localhost
+    port: 6379
+    timeout: 10s
+    lettuce:
+      pool:
+        max-active: 50
+        max-idle: 50
+        max-wait: -1ms
+        min-idle: 0
+tencent:
+  sms:
+    secretId: dwHDOHdw23#@JDkdo
+    secretKey: OJD@#JHJ12jJcdiwdJEDDKSd
+    region: ap-guangzhou
+    appId: 1400009099
+    signName: hbwxz
+    template-id:
+      phoneCode: 449739 #欢迎登陆电商网站，您的短信验证码是${},请在5分钟内使用。
+      sales: 449740 #欢迎使用电商网站，销售用。
